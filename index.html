@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+
+
+
+
+<title>Single-node data aggregation benchmark</title>
+
+<script src="index_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="index_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="index_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="index_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="index_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="index_files/navigation-1.1/tabsets.js"></script>
+<link href="index_files/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="index_files/highlightjs-9.12.0/highlight.js"></script>
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-129166154-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-129166154-1');
+</script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">Single-node data aggregation benchmark</h1>
+
+</div>
+
+
+<p>This page aims to benchmark various database-like tools popular in open-source data science. It runs regularly against very latest versions of these packages and automatically updates. We provide this as a service to both developers of these packages and to users. We hope to add joins and updates with a focus on ordered operations which are hard to achieve in (unordered) SQL. We hope to add more solutions over time although the most interesting solutions seems to be not mature enough. See <a href="https://github.com/h2oai/db-benchmark/blob/master/README.md">README.md</a> for detailed status.</p>
+<p>We limit the scope to what can be achieved on a single machine. Laptop size memory (8GB) and server size memory (250GB) are in scope. Out-of-memory using local disk such as NVMe is in scope. Multi-node systems such as Spark running in single machine mode is in scope, too. Machines are getting bigger: EC2 X1 has 2TB RAM and 1TB NVMe disk is under $300. If you can perform the task on a single machine, then perhaps you should. To our knowledge, nobody has yet compared this software in this way and published results too.</p>
+<p>We also include the syntax being timed alongside the timing. This way you can immediately see whether you are doing these tasks or not, and if the timing differences matter to you or not. A 10x difference may be irrelevant if that’s just 1s vs 0.1s on your data size. The intention is that you click the tab for the size of data you have.</p>
+<p>Because we have been asked many times to do so, the first task and initial motivation for this page, was to update the benchmark designed and run by <a href="https://twitter.com/MattDowle">Matt Dowle</a> (creator of <a href="https://github.com/Rdatatable/data.table">data.table</a>) in 2014 <a href="https://github.com/Rdatatable/data.table/wiki/Benchmarks-%3A-Grouping">here</a>. The methodology and reproducible code can be obtained there. Exact code of this report and benchmark script can be found at <a href="https://github.com/h2oai/db-benchmark">h2oai/db-benchmark</a> created by <a href="https://github.com/jangorecki">Jan Gorecki</a> funded by <a href="https://www.h2o.ai">H2O.ai</a>. In case of questions/feedback, feel free to file an issue there.</p>
+<div id="groupby" class="section level2 tabset tabset-fade tabset-pills">
+<h2>Groupby</h2>
+<p>Below timings are presented for a single dataset case having random order, no NAs (missing values) and particular cardinality factor (<code>k=100</code>). To see timings for first run in other cases scroll down to summary table and read use cases according to the following pattern <code>G1_[in-rows]_[k-cardinality-factor]_[NA-pct]_[is-sorted].csv</code>.</p>
+<div id="gb" class="section level3">
+<h3>0.5GB</h3>
+<div class="figure">
+<img src="plots/groupby.1e7_1e2_0_0.png" />
+
+</div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">data</th>
+<th align="left">question</th>
+<th align="right">dask</th>
+<th align="right">data.table</th>
+<th align="right">dplyr</th>
+<th align="right">juliadf</th>
+<th align="right">pandas</th>
+<th align="right">pydatatable</th>
+<th align="right">spark</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_0.png">G1_1e7_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.084</td>
+<td align="right">0.121</td>
+<td align="right">0.133</td>
+<td align="right">5.174</td>
+<td align="right">0.176</td>
+<td align="right">0.166</td>
+<td align="right">1.233</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_0.png">G1_1e7_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.197</td>
+<td align="right">0.302</td>
+<td align="right">0.470</td>
+<td align="right">2.248</td>
+<td align="right">0.634</td>
+<td align="right">0.715</td>
+<td align="right">1.672</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_0.png">G1_1e7_1e2_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">1.374</td>
+<td align="right">0.725</td>
+<td align="right">0.764</td>
+<td align="right">5.841</td>
+<td align="right">0.380</td>
+<td align="right">0.864</td>
+<td align="right">1.422</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_0.png">G1_1e7_1e2_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">0.166</td>
+<td align="right">0.240</td>
+<td align="right">0.517</td>
+<td align="right">1.523</td>
+<td align="right">0.382</td>
+<td align="right">0.095</td>
+<td align="right">0.758</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_0.png">G1_1e7_1e2_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">0.266</td>
+<td align="right">0.892</td>
+<td align="right">1.564</td>
+<td align="right">5.543</td>
+<td align="right">1.131</td>
+<td align="right">0.157</td>
+<td align="right">1.052</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e1_0_0.png">G1_1e7_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.074</td>
+<td align="right">0.114</td>
+<td align="right">0.079</td>
+<td align="right">NA</td>
+<td align="right">0.189</td>
+<td align="right">0.148</td>
+<td align="right">1.490</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e1_0_0.png">G1_1e7_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.118</td>
+<td align="right">0.248</td>
+<td align="right">0.177</td>
+<td align="right">NA</td>
+<td align="right">0.385</td>
+<td align="right">0.356</td>
+<td align="right">0.956</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e1_0_0.png">G1_1e7_1e1_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">11.469</td>
+<td align="right">1.172</td>
+<td align="right">2.563</td>
+<td align="right">NA</td>
+<td align="right">1.335</td>
+<td align="right">2.008</td>
+<td align="right">1.873</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e1_0_0.png">G1_1e7_1e1_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">0.166</td>
+<td align="right">0.229</td>
+<td align="right">0.411</td>
+<td align="right">NA</td>
+<td align="right">0.380</td>
+<td align="right">0.090</td>
+<td align="right">0.545</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e1_0_0.png">G1_1e7_1e1_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">1.255</td>
+<td align="right">1.169</td>
+<td align="right">6.294</td>
+<td align="right">NA</td>
+<td align="right">1.882</td>
+<td align="right">0.409</td>
+<td align="right">1.621</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_2e0_0_0.png">G1_1e7_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.092</td>
+<td align="right">0.124</td>
+<td align="right">0.087</td>
+<td align="right">NA</td>
+<td align="right">0.188</td>
+<td align="right">0.152</td>
+<td align="right">1.064</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_2e0_0_0.png">G1_1e7_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.109</td>
+<td align="right">0.238</td>
+<td align="right">0.142</td>
+<td align="right">NA</td>
+<td align="right">0.408</td>
+<td align="right">0.274</td>
+<td align="right">1.108</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_2e0_0_0.png">G1_1e7_2e0_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">23.113</td>
+<td align="right">1.309</td>
+<td align="right">5.949</td>
+<td align="right">NA</td>
+<td align="right">4.578</td>
+<td align="right">3.247</td>
+<td align="right">2.927</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_2e0_0_0.png">G1_1e7_2e0_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">0.174</td>
+<td align="right">0.247</td>
+<td align="right">0.353</td>
+<td align="right">NA</td>
+<td align="right">0.497</td>
+<td align="right">0.166</td>
+<td align="right">0.589</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_2e0_0_0.png">G1_1e7_2e0_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">3.085</td>
+<td align="right">1.651</td>
+<td align="right">13.675</td>
+<td align="right">NA</td>
+<td align="right">4.348</td>
+<td align="right">0.447</td>
+<td align="right">2.058</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_1.png">G1_1e7_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.074</td>
+<td align="right">0.076</td>
+<td align="right">0.063</td>
+<td align="right">NA</td>
+<td align="right">0.191</td>
+<td align="right">0.171</td>
+<td align="right">1.118</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_1.png">G1_1e7_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.122</td>
+<td align="right">0.172</td>
+<td align="right">0.113</td>
+<td align="right">NA</td>
+<td align="right">0.423</td>
+<td align="right">0.342</td>
+<td align="right">1.533</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_1.png">G1_1e7_1e2_0_1.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">1.351</td>
+<td align="right">0.730</td>
+<td align="right">0.776</td>
+<td align="right">NA</td>
+<td align="right">0.439</td>
+<td align="right">0.723</td>
+<td align="right">1.274</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_1.png">G1_1e7_1e2_0_1.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">0.165</td>
+<td align="right">0.238</td>
+<td align="right">0.467</td>
+<td align="right">NA</td>
+<td align="right">0.392</td>
+<td align="right">0.100</td>
+<td align="right">0.556</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e7_1e2_0_1.png">G1_1e7_1e2_0_1.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">0.279</td>
+<td align="right">0.769</td>
+<td align="right">1.458</td>
+<td align="right">NA</td>
+<td align="right">1.144</td>
+<td align="right">0.169</td>
+<td align="right">1.018</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="gb-1" class="section level3">
+<h3>5GB</h3>
+<div class="figure">
+<img src="plots/groupby.1e8_1e2_0_0.png" />
+
+</div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">data</th>
+<th align="left">question</th>
+<th align="right">dask</th>
+<th align="right">data.table</th>
+<th align="right">dplyr</th>
+<th align="right">juliadf</th>
+<th align="right">pandas</th>
+<th align="right">pydatatable</th>
+<th align="right">spark</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_0.png">G1_1e8_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.527</td>
+<td align="right">1.425</td>
+<td align="right">1.897</td>
+<td align="right">18.248</td>
+<td align="right">1.411</td>
+<td align="right">1.220</td>
+<td align="right">5.413</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_0.png">G1_1e8_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">1.330</td>
+<td align="right">3.468</td>
+<td align="right">5.936</td>
+<td align="right">23.836</td>
+<td align="right">6.247</td>
+<td align="right">9.014</td>
+<td align="right">4.625</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_0.png">G1_1e8_1e2_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">133.140</td>
+<td align="right">6.339</td>
+<td align="right">16.073</td>
+<td align="right">149.322</td>
+<td align="right">9.531</td>
+<td align="right">11.275</td>
+<td align="right">8.165</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_0.png">G1_1e8_1e2_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">1.585</td>
+<td align="right">2.801</td>
+<td align="right">7.372</td>
+<td align="right">17.809</td>
+<td align="right">4.077</td>
+<td align="right">0.954</td>
+<td align="right">1.817</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_0.png">G1_1e8_1e2_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">7.649</td>
+<td align="right">7.510</td>
+<td align="right">39.802</td>
+<td align="right">164.204</td>
+<td align="right">19.511</td>
+<td align="right">2.749</td>
+<td align="right">6.238</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e1_0_0.png">G1_1e8_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.495</td>
+<td align="right">1.119</td>
+<td align="right">1.036</td>
+<td align="right">NA</td>
+<td align="right">1.393</td>
+<td align="right">1.157</td>
+<td align="right">2.813</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e1_0_0.png">G1_1e8_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.926</td>
+<td align="right">3.127</td>
+<td align="right">2.208</td>
+<td align="right">NA</td>
+<td align="right">3.987</td>
+<td align="right">3.240</td>
+<td align="right">3.443</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e1_0_0.png">G1_1e8_1e1_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">442.227</td>
+<td align="right">11.177</td>
+<td align="right">35.128</td>
+<td align="right">NA</td>
+<td align="right">23.532</td>
+<td align="right">23.537</td>
+<td align="right">13.525</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e1_0_0.png">G1_1e8_1e1_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">1.581</td>
+<td align="right">2.274</td>
+<td align="right">4.084</td>
+<td align="right">NA</td>
+<td align="right">3.884</td>
+<td align="right">0.850</td>
+<td align="right">1.629</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e1_0_0.png">G1_1e8_1e1_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">24.172</td>
+<td align="right">13.356</td>
+<td align="right">82.225</td>
+<td align="right">NA</td>
+<td align="right">35.934</td>
+<td align="right">3.563</td>
+<td align="right">10.281</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_2e0_0_0.png">G1_1e8_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.485</td>
+<td align="right">1.121</td>
+<td align="right">0.845</td>
+<td align="right">NA</td>
+<td align="right">1.383</td>
+<td align="right">1.195</td>
+<td align="right">2.420</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_2e0_0_0.png">G1_1e8_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">0.939</td>
+<td align="right">2.431</td>
+<td align="right">1.494</td>
+<td align="right">NA</td>
+<td align="right">3.927</td>
+<td align="right">2.307</td>
+<td align="right">3.296</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_2e0_0_0.png">G1_1e8_2e0_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">774.062</td>
+<td align="right">20.705</td>
+<td align="right">70.623</td>
+<td align="right">NA</td>
+<td align="right">68.338</td>
+<td align="right">37.452</td>
+<td align="right">14.884</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_2e0_0_0.png">G1_1e8_2e0_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">1.552</td>
+<td align="right">2.555</td>
+<td align="right">2.786</td>
+<td align="right">NA</td>
+<td align="right">3.853</td>
+<td align="right">1.492</td>
+<td align="right">1.610</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_2e0_0_0.png">G1_1e8_2e0_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">51.010</td>
+<td align="right">23.044</td>
+<td align="right">148.081</td>
+<td align="right">NA</td>
+<td align="right">63.645</td>
+<td align="right">5.717</td>
+<td align="right">12.447</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_1.png">G1_1e8_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">0.496</td>
+<td align="right">0.685</td>
+<td align="right">0.592</td>
+<td align="right">NA</td>
+<td align="right">1.467</td>
+<td align="right">1.162</td>
+<td align="right">2.347</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_1.png">G1_1e8_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">1.023</td>
+<td align="right">1.701</td>
+<td align="right">1.051</td>
+<td align="right">NA</td>
+<td align="right">3.967</td>
+<td align="right">2.518</td>
+<td align="right">3.924</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_1.png">G1_1e8_1e2_0_1.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">133.501</td>
+<td align="right">5.709</td>
+<td align="right">14.775</td>
+<td align="right">NA</td>
+<td align="right">5.899</td>
+<td align="right">7.426</td>
+<td align="right">8.404</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_1.png">G1_1e8_1e2_0_1.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">1.563</td>
+<td align="right">2.735</td>
+<td align="right">7.235</td>
+<td align="right">NA</td>
+<td align="right">4.032</td>
+<td align="right">0.946</td>
+<td align="right">1.557</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e8_1e2_0_1.png">G1_1e8_1e2_0_1.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">7.695</td>
+<td align="right">7.485</td>
+<td align="right">39.861</td>
+<td align="right">NA</td>
+<td align="right">20.875</td>
+<td align="right">2.811</td>
+<td align="right">6.159</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="gb-2" class="section level3 active">
+<h3>50GB</h3>
+<div class="figure">
+<img src="plots/groupby.1e9_1e2_0_0.png" />
+
+</div>
+<table>
+<thead>
+<tr class="header">
+<th align="left">data</th>
+<th align="left">question</th>
+<th align="right">data.table</th>
+<th align="right">dplyr</th>
+<th align="right">pydatatable</th>
+<th align="right">spark</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_0.png">G1_1e9_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">14.196</td>
+<td align="right">17.021</td>
+<td align="right">14.045</td>
+<td align="right">16.018</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_0.png">G1_1e9_1e2_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">38.902</td>
+<td align="right">59.257</td>
+<td align="right">76.695</td>
+<td align="right">37.471</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_0.png">G1_1e9_1e2_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">99.863</td>
+<td align="right">246.969</td>
+<td align="right">176.826</td>
+<td align="right">159.695</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_0.png">G1_1e9_1e2_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">26.863</td>
+<td align="right">74.430</td>
+<td align="right">8.555</td>
+<td align="right">11.663</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_0.png">G1_1e9_1e2_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">121.000</td>
+<td align="right">538.252</td>
+<td align="right">26.009</td>
+<td align="right">85.110</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e1_0_0.png">G1_1e9_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">10.331</td>
+<td align="right">10.163</td>
+<td align="right">11.808</td>
+<td align="right">16.619</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e1_0_0.png">G1_1e9_1e1_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">28.558</td>
+<td align="right">24.249</td>
+<td align="right">34.882</td>
+<td align="right">26.058</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e1_0_0.png">G1_1e9_1e1_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">177.061</td>
+<td align="right">475.667</td>
+<td align="right">326.544</td>
+<td align="right">233.705</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e1_0_0.png">G1_1e9_1e1_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">22.982</td>
+<td align="right">41.012</td>
+<td align="right">7.736</td>
+<td align="right">11.545</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e1_0_0.png">G1_1e9_1e1_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">204.000</td>
+<td align="right">998.778</td>
+<td align="right">35.121</td>
+<td align="right">96.043</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_2e0_0_0.png">G1_1e9_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">10.976</td>
+<td align="right">8.085</td>
+<td align="right">11.919</td>
+<td align="right">16.126</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_2e0_0_0.png">G1_1e9_2e0_0_0.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">24.240</td>
+<td align="right">14.244</td>
+<td align="right">23.042</td>
+<td align="right">22.189</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_2e0_0_0.png">G1_1e9_2e0_0_0.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">266.763</td>
+<td align="right">NA</td>
+<td align="right">516.909</td>
+<td align="right">242.737</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_2e0_0_0.png">G1_1e9_2e0_0_0.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">25.556</td>
+<td align="right">NA</td>
+<td align="right">13.669</td>
+<td align="right">11.892</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_2e0_0_0.png">G1_1e9_2e0_0_0.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">297.719</td>
+<td align="right">NA</td>
+<td align="right">76.305</td>
+<td align="right">116.326</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_1.png">G1_1e9_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1</td>
+<td align="right">6.675</td>
+<td align="right">7.666</td>
+<td align="right">11.893</td>
+<td align="right">14.847</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_1.png">G1_1e9_1e2_0_1.csv</a></td>
+<td align="left">sum v1 by id1:id2</td>
+<td align="right">16.275</td>
+<td align="right">11.702</td>
+<td align="right">24.248</td>
+<td align="right">21.707</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_1.png">G1_1e9_1e2_0_1.csv</a></td>
+<td align="left">sum v1 mean v3 by id3</td>
+<td align="right">74.472</td>
+<td align="right">197.849</td>
+<td align="right">81.746</td>
+<td align="right">132.357</td>
+</tr>
+<tr class="odd">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_1.png">G1_1e9_1e2_0_1.csv</a></td>
+<td align="left">mean v1:v3 by id4</td>
+<td align="right">27.933</td>
+<td align="right">72.704</td>
+<td align="right">8.859</td>
+<td align="right">11.444</td>
+</tr>
+<tr class="even">
+<td align="left"><a href="plots/groupby.1e9_1e2_0_1.png">G1_1e9_1e2_0_1.csv</a></td>
+<td align="left">sum v1:v3 by id6</td>
+<td align="right">124.558</td>
+<td align="right">531.215</td>
+<td align="right">25.843</td>
+<td align="right">84.885</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div id="hardware-configuration" class="section level2">
+<h2>Hardware configuration</h2>
+<table>
+<thead>
+<tr class="header">
+<th align="left">Component</th>
+<th align="left">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">cpu_model</td>
+<td align="left">Intel(R) Xeon(R) CPU E5-2660 v3 @ 2.60GHz</td>
+</tr>
+<tr class="even">
+<td align="left">cpu_cores</td>
+<td align="left">20</td>
+</tr>
+<tr class="odd">
+<td align="left">memory_model</td>
+<td align="left">DIMM DDR4 Synchronous 2133 MHz</td>
+</tr>
+<tr class="even">
+<td align="left">memory_gb</td>
+<td align="left">125.8</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<p>Benchmark run took around 19.8 hours.</p>
+<p>Report was generated on: 2018-11-28 21:12:47 PST.</p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
